@@ -1,27 +1,3 @@
-"""
-p2p_gui.py — Interface Tkinter pour le transfert P2P, avec découverte
-automatique des pairs sur le réseau local (façon Xender).
-
-Ce fichier ne contient AUCUNE logique réseau : il appelle uniquement
-- p2p_core (start_listener_thread, send_file_async) pour le transfert
-  de fichier lui-même — INCHANGÉ, aucune ligne de p2p_core.py n'a été
-  touchée ;
-- p2p_discovery (start_discovery_responder, scan_for_peers_async) pour
-  trouver les pairs disponibles sur le réseau sans jamais saisir une
-  IP ou un port à la main.
-
-Flux :
-  1. L'utilisateur choisit un rôle : « Recevoir » ou « Envoyer ».
-  2. Rôle Recevoir : on démarre l'écoute TCP habituelle (p2p_core) ET
-     un répondeur de découverte UDP (p2p_discovery) sur le même port,
-     puis on attend d'être trouvé par un pair.
-  3. Rôle Envoyer : on diffuse un scan UDP, on affiche la liste des
-     pairs "Recevoir" trouvés sur le réseau, l'utilisateur clique sur
-     celui qu'il veut, puis on retrouve l'écran d'envoi déjà existant
-     (choisir un fichier + Envoyer) — IP et port sont remplis tout
-     seuls à partir du pair choisi.
-"""
-
 import queue
 import socket
 import time
@@ -32,11 +8,6 @@ from tkinter import filedialog, messagebox
 import p2p_core
 import p2p_discovery
 
-
-# ---------------------------------------------------------------------------
-# Design tokens — palette "console réseau" : fond bleu-nuit, turquoise pour
-# l'état connecté/succès, bleu pour l'action d'envoi/transmission.
-# ---------------------------------------------------------------------------
 COLORS = {
     "bg": "#11151C",
     "panel": "#181E28",
@@ -44,16 +15,14 @@ COLORS = {
     "border": "#2B3444",
     "text": "#E6E9F0",
     "muted": "#7C8698",
-    "accent": "#45D9C0",    # turquoise — connexion / succès / recevoir
-    "accent2": "#5B8DEF",   # bleu — envoi / transmission
+    "accent": "#45D9C0",
+    "accent2": "#5B8DEF",
     "error": "#F0637A",
     "console_bg": "#0C0F14",
 }
 
 
 def pick_font(root, candidates, fallback="TkDefaultFont"):
-    """Choisit la première police disponible sur la machine parmi une
-    liste de préférences, pour un rendu cohérent cross-plateforme."""
     available = set(tkfont.families(root))
     for name in candidates:
         if name in available:
@@ -70,9 +39,6 @@ def round_points(x1, y1, x2, y2, r):
 
 
 class RoundedButton(tk.Canvas):
-    """Bouton à coins arrondis dessiné au Canvas — ttk ne permet pas de
-    border-radius fiable multi-plateforme, donc on le dessine nous-mêmes."""
-
     def __init__(self, parent, text, command, bg, fg, hover_bg,
                  width=180, height=36, radius=10, font=None):
         super().__init__(parent, width=width, height=height,
@@ -115,8 +81,6 @@ class RoundedButton(tk.Canvas):
 
 
 class StatusPill(tk.Canvas):
-    """Pastille arrondie : point coloré + libellé d'état de connexion."""
-
     def __init__(self, parent, width=170, height=28, font=None):
         super().__init__(parent, width=width, height=height,
                           bg=parent["bg"], highlightthickness=0, bd=0)
@@ -137,8 +101,6 @@ class StatusPill(tk.Canvas):
 
 
 def node_icon(parent, size=32):
-    """Icône « deux nœuds reliés » — signe distinctif rappelant le sujet
-    de l'appli : un transfert direct entre deux pairs."""
     c = tk.Canvas(parent, width=size, height=size, bg=parent["bg"], highlightthickness=0)
     c.create_line(9, size - 9, size - 9, 9, fill=COLORS["accent"], width=2)
     c.create_oval(3, size - 13, 13, size - 3, fill=COLORS["accent2"], outline="")
@@ -147,9 +109,6 @@ def node_icon(parent, size=32):
 
 
 class Card(tk.Frame):
-    """Panneau avec bordure fine + libellé « eyebrow » majuscule espacé
-    au-dessus du contenu."""
-
     def __init__(self, parent, title, label_font):
         super().__init__(parent, bg=COLORS["panel"],
                           highlightbackground=COLORS["border"],
@@ -175,9 +134,6 @@ class StyledEntry(tk.Entry):
 
 
 class PeerRow(tk.Frame):
-    """Une ligne cliquable représentant un pair détecté sur le réseau
-    (nom d'hôte + ip:port), avec un bouton « Choisir »."""
-
     def __init__(self, parent, name, ip, port, on_choose, font_name, font_ip, font_btn):
         super().__init__(parent, bg=COLORS["input_bg"],
                           highlightbackground=COLORS["border"],
@@ -225,8 +181,8 @@ class P2PApp:
 
         self.log_queue = queue.Queue()
         self.listening = False
-        self.role = None            # "receive" ou "send"
-        self.selected_peer = None   # (ip, port) une fois choisi via le scan
+        self.role = None
+        self.selected_peer = None
         self.peer_rows = []
 
         self._build_shell()
@@ -378,10 +334,6 @@ class P2PApp:
             return
 
         device_name = socket.gethostname()
-
-        # Écoute TCP habituelle (p2p_core, inchangé) + répondeur de
-        # découverte UDP sur le même port, pour qu'un pair "Envoyer"
-        # puisse nous trouver et récupérer directement ip:port.
         p2p_core.start_listener_thread(port, log=self._log_from_thread)
         p2p_discovery.start_discovery_responder(
             port, device_name=device_name, log=self._log_from_thread
