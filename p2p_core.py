@@ -1,16 +1,3 @@
-"""
-p2p_core.py — Logique réseau du transfert de fichiers P2P.
-
-Ce module ne contient AUCUN code d'interface graphique. Il expose
-uniquement les fonctions réseau (écoute, réception, envoi), identiques
-à la version originale. La seule différence : chaque fonction accepte
-un paramètre `log` (une fonction qui prend une string), pour que
-n'importe quelle interface (terminal, Tkinter, etc.) puisse afficher
-les messages où elle veut, sans que ce module ait besoin de savoir
-comment ils sont affichés. Par défaut, `log=print` reproduit le
-comportement d'origine si on utilise ce module en ligne de commande.
-"""
-
 import socket
 import threading
 import os
@@ -19,7 +6,6 @@ BUFFER_SIZE = 4096
 
 
 def receive_file_handler(client_socket, log=print):
-    """Handles an incoming file from a peer."""
     try:
         # 1. Read metadata (Filename)
         metadata = client_socket.recv(BUFFER_SIZE).decode('utf-8').strip()
@@ -45,31 +31,24 @@ def receive_file_handler(client_socket, log=print):
 
 
 def start_listening_server(port, log=print):
-    """Runs a TCP server to accept inbound peer connections.
-    Blocking — meant to be run inside a thread."""
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind(('0.0.0.0', port))
     server.listen(5)
     log(f"[*] Node is active and listening on port {port}...")
     while True:
         client_socket, addr = server.accept()
-        # Spin up a thread per file request to ensure asynchronous transfers
         thread = threading.Thread(target=receive_file_handler, args=(client_socket, log))
         thread.daemon = True
         thread.start()
 
 
 def start_listener_thread(port, log=print):
-    """Convenience helper for callers (like a GUI) that don't want to
-    manage the thread themselves: starts start_listening_server as a
-    daemon thread and returns the Thread object."""
     thread = threading.Thread(target=start_listening_server, args=(port, log), daemon=True)
     thread.start()
     return thread
 
 
 def send_file(peer_ip, peer_port, file_path, log=print):
-    """Connects to a peer and sends a file."""
     if not os.path.exists(file_path):
         log("[Error] File does not exist locally.")
         return
@@ -98,8 +77,6 @@ def send_file(peer_ip, peer_port, file_path, log=print):
 
 
 def send_file_async(peer_ip, peer_port, file_path, log=print):
-    """Runs send_file in a background thread so a caller (like a GUI's
-    main loop) doesn't freeze while the transfer is in progress."""
     thread = threading.Thread(
         target=send_file, args=(peer_ip, peer_port, file_path, log), daemon=True
     )
